@@ -1,0 +1,3 @@
+- randomly sampling num_points may not be as good as systematically sampling
+  points for optimization on
+- in the online branch the point cloud vizualization tool shouldn't be supported
