@@ -15,14 +15,12 @@ namespace articulation {
 class Articulation {
 public:
   // Constructor
-  explicit Articulation(ros::NodeHandle *n);
+  explicit Articulation(ros::NodeHandle *n, const size_t& num_iters);
 
-  void UpdatePointCloud(std::vector<Eigen::Vector3d> &pc);
-  
-  void OptimizeRevoluteOffline();
-  void OptimizePrismaticOffline();
-  void OptimizeRevoluteOnline();
-  void OptimizePrismaticOnline();
+  void UpdatePointCloud(std::vector<Eigen::Vector3d> &pc, const size_t& n);
+
+  void OptimizeRevoluteOnline(const double& time);
+  void OptimizePrismaticOnline(const double& time);
 
   void Print();
 
@@ -37,9 +35,11 @@ private:
   double offset_y_ = 0;
   double offset_z_ = 0;
   std::vector<double> thetas_;
+  std::vector<double> times_;
   ceres::Problem problem_;
   ceres::Solver::Options options_;
   ceres::Solver::Summary summary_;
+  bool first_update = true;
 };
 
 struct RevoluteDepthResidual {

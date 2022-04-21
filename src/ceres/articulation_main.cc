@@ -53,6 +53,7 @@ CONFIG_DOUBLE(z_max_, "z_max");
 CONFIG_UINT(num_points_, "num_points");
 config_reader::ConfigReader config_reader_({"config/articulation.lua"});
 
+DEFINE_uint32(num_opt_iters, 2, "max num of ceres iterations for every frame");
 DEFINE_string(points_topic, "kinect_points", "Name of ROS Topic");
 DEFINE_string(type, "prismatic", "type of articulated joint");
 
@@ -68,32 +69,26 @@ float ToFloat(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
 
 void KinectCallback(const sensor_msgs::PointCloud2 &cloud_msg) {
   std::vector<Vector3d> point_cloud;
-  for (size_t d = 0; d < CONFIG_num_points_; d++) {
-    size_t i = rand() % cloud_msg.height;
-    size_t j = (rand() % cloud_msg.width) * cloud_msg.point_step;
-    size_t idx = i * cloud_msg.width * cloud_msg.point_step + j;
-    double x = ToFloat(cloud_msg.data[idx + 3], cloud_msg.data[idx + 2],
-                        cloud_msg.data[idx + 1], cloud_msg.data[idx + 0]);
-    if (!(x > CONFIG_x_min_ and x < CONFIG_x_max_) or x == 0) {
-      --d;
-      continue;
+  for (uint32_t i = 0; i < cloud_msg.height; i++) {
+    for (uint32_t j = 0; j < cloud_msg.width * cloud_msg.point_step; j += cloud_msg.point_step) {
+      size_t idx = i * cloud_msg.width * cloud_msg.point_step + j;
+      double x = ToFloat(cloud_msg.data[idx + 3], cloud_msg.data[idx + 2],
+                         cloud_msg.data[idx + 1], cloud_msg.data[idx + 0]);
+      if (!(x > CONFIG_x_min_ and x < CONFIG_x_max_) or x == 0)
+        continue;
+      double y = ToFloat(cloud_msg.data[idx + 7], cloud_msg.data[idx + 6],
+                         cloud_msg.data[idx + 5], cloud_msg.data[idx + 4]);
+      if (!(y > CONFIG_y_min_ and y < CONFIG_y_max_) or y == 0)
+        continue;
+      double z = ToFloat(cloud_msg.data[idx + 11], cloud_msg.data[idx + 10],
+                         cloud_msg.data[idx + 9], cloud_msg.data[idx + 8]);
+      if (!(z > CONFIG_z_min_ and z < CONFIG_z_max_))
+        continue;
+      point_cloud.push_back({x, y, z});
     }
-    double y = ToFloat(cloud_msg.data[idx + 7], cloud_msg.data[idx + 6],
-                        cloud_msg.data[idx + 5], cloud_msg.data[idx + 4]);
-    if (!(y > CONFIG_y_min_ and y < CONFIG_y_max_) or y == 0) {
-      --d;
-      continue;
-    }
-    double z = ToFloat(cloud_msg.data[idx + 11], cloud_msg.data[idx + 10],
-                        cloud_msg.data[idx + 9], cloud_msg.data[idx + 8]);
-    if (!(z > CONFIG_z_min_ and z < CONFIG_z_max_)) {
-      --d;
-      continue;
-    }
-    point_cloud.push_back({x, y, z});
   }
 
-  articulation_->UpdatePointCloud(point_cloud);
+  articulation_->UpdatePointCloud(point_cloud, CONFIG_num_points_);
 }
 
 void SignalHandler(int) {
@@ -111,18 +106,20 @@ int main(int argc, char **argv) {
   // Initialize ROS.
   ros::init(argc, argv, "depth_factor", ros::init_options::NoSigintHandler);
   ros::NodeHandle n;
-  articulation_ = new Articulation(&n);
+  articulation_ = new Articulation(&n, FLAGS_num_opt_iters);
 
   ros::Subscriber kinect_sub =
       n.subscribe(FLAGS_points_topic, 1, &KinectCallback);
+
+  double start_time = ros::Time::now().toSec();
 
   RateLoop loop(20.0);
   while (run_ && ros::ok()) {
     ros::spinOnce();
     if (FLAGS_type == "revolute") {
-      articulation_->OptimizeRevoluteOnline();
+      articulation_->OptimizeRevoluteOnline(ros::Time::now().toSec() - start_time);
     } else if (FLAGS_type == "prismatic") {
-      articulation_->OptimizePrismaticOnline();
+      articulation_->OptimizePrismaticOnline(ros::Time::now().toSec() - start_time);
     }
     loop.Sleep();
   }
