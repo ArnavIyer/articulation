@@ -34,7 +34,7 @@ using namespace ros_helpers;
 
 namespace articulation {
 
-Articulation::Articulation(ros::NodeHandle *n, const size_t& num_iters) : avg_(0,0,0) {
+Articulation::Articulation(ros::NodeHandle *n, const size_t& num_iters, const std::string& type) : avg_(0,0,0), type_(type) {
   thetas_.reserve(300);
   times_.reserve(300);
   options_.linear_solver_type = ceres::DENSE_QR;
@@ -43,10 +43,14 @@ Articulation::Articulation(ros::NodeHandle *n, const size_t& num_iters) : avg_(0
 }
 
 void Articulation::Print() {
-  // std::cout << "optimize count: " << optimize_ctr_ << "update count: " << update_ctr_ << std::endl;
-
-  std::cout << "normal_vector: {" << sin(paa_) * cos(aaa_) << ", "
-            << sin(paa_) * sin(aaa_) << ", " << cos(paa_) << "}" << std::endl;
+  if (type_ == "prismatic")
+    std::cout << "normal_vector: {" << sin(paa_) * cos(aaa_) << ", "
+              << sin(paa_) * sin(aaa_) << ", " << cos(paa_) << "}" << std::endl;
+  else if (type_ == "revolute") {
+    Eigen::Vector3d n = {n_x_, n_y_, n_z_};
+    n /= n.norm();
+    std::cout << "normal_vector: {" << n.x() << "," << n.y() << "," << n.z() << "}" << std::endl;
+  }
   std::cout << "offset vector: {" << offset_x_ << ", " << offset_y_ << ", " << offset_z_ << "}" << std::endl;
   std::cout << "thetas: " << std::flush;
   for (auto ang : thetas_) {
@@ -120,21 +124,23 @@ void Articulation::OptimizeRevoluteOnline(const double& time) {
 
   for (size_t j = 0; j < point_cloud_.size(); j++) {
     CostFunction *cf =
-        new AutoDiffCostFunction<RevoluteDepthResidual, 1, 1, 1, 1, 1, 1, 1>(
-            new RevoluteDepthResidual(point_cloud_[j], avg_));
-    problem_.AddResidualBlock(cf, new CauchyLoss(0.5), &paa_, &aaa_, &thetas_.back(), &offset_x_, &offset_y_, &offset_z_);
+        new AutoDiffCostFunction<RevoluteDepthResidual3Norm, 1, 1, 1, 1, 1, 1, 1, 1>(
+            new RevoluteDepthResidual3Norm(point_cloud_[j], avg_));
+    problem_.AddResidualBlock(cf, new CauchyLoss(0.5), &n_x_, &n_y_, &n_z_, &thetas_.back(), &offset_x_, &offset_y_, &offset_z_);
   }
 
   if (!added_bounds_) {
-    problem_.SetParameterLowerBound(&paa_, 0, -1 * M_PI * 2);
-    problem_.SetParameterUpperBound(&paa_, 0, M_PI * 2);
-    problem_.SetParameterLowerBound(&aaa_, 0, -1 * M_PI * 2);
-    problem_.SetParameterUpperBound(&aaa_, 0, M_PI * 2);
+    problem_.SetParameterLowerBound(&n_x_, 0, -2);
+    problem_.SetParameterUpperBound(&n_x_, 0, 2);
+    problem_.SetParameterLowerBound(&n_y_, 0, -2);
+    problem_.SetParameterUpperBound(&n_y_, 0, 2);
+    problem_.SetParameterLowerBound(&n_z_, 0, -2);
+    problem_.SetParameterUpperBound(&n_z_, 0, 2);
     added_bounds_ = true;
   }
 
-  problem_.SetParameterLowerBound(&thetas_.back(), 0, -1 * M_PI * 2);
-  problem_.SetParameterUpperBound(&thetas_.back(), 0, M_PI * 2);
+  problem_.SetParameterLowerBound(&thetas_.back(), 0, -1 * M_PI);
+  problem_.SetParameterUpperBound(&thetas_.back(), 0, M_PI);
 
   Solve(options_, &problem_, &summary_);
 

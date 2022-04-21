@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
   // Initialize ROS.
   ros::init(argc, argv, "depth_factor", ros::init_options::NoSigintHandler);
   ros::NodeHandle n;
-  articulation_ = new Articulation(&n, FLAGS_num_opt_iters);
+  articulation_ = new Articulation(&n, FLAGS_num_opt_iters, FLAGS_type);
 
   ros::Subscriber kinect_sub =
       n.subscribe(FLAGS_points_topic, 1, &KinectCallback);

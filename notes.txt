@@ -1,3 +1,4 @@
 - randomly sampling num_points may not be as good as systematically sampling
   points for optimization on
-- in the online branch the point cloud vizualization tool shouldn't be supported
+- Using x,y,z representation of axis unit vector, but this optimization will
+  fail if the norm of the vector becomes zero.
