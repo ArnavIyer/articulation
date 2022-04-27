@@ -2,3 +2,4 @@
   points for optimization on
 - Using x,y,z representation of axis unit vector, but this optimization will
   fail if the norm of the vector becomes zero.
+- Rodriguez rotation sometimes causes angles to be off by multiples of 180

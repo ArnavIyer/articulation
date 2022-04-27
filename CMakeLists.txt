@@ -53,7 +53,7 @@ INCLUDE_DIRECTORIES(${EIGEN3_INCLUDE_DIR})
 ROSBUILD_ADD_EXECUTABLE(articulation
                         src/ceres/articulation_main.cc
                         src/ceres/articulation.cc)
-TARGET_LINK_LIBRARIES(articulation amrl_shared_lib ${libs} ${CERES_INCLUDE_DIRS} ceres)
+TARGET_LINK_LIBRARIES(articulation amrl_shared_lib rviz_visual_tools ${libs} ${CERES_INCLUDE_DIRS} ceres)
 
 
 # ADD_EXECUTABLE(eigen_tutorial

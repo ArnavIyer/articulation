@@ -70,7 +70,8 @@ float ToFloat(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
 void KinectCallback(const sensor_msgs::PointCloud2 &cloud_msg) {
   std::vector<Vector3d> point_cloud;
   for (uint32_t i = 0; i < cloud_msg.height; i++) {
-    for (uint32_t j = 0; j < cloud_msg.width * cloud_msg.point_step; j += cloud_msg.point_step) {
+    for (uint32_t j = 0; j < cloud_msg.width * cloud_msg.point_step;
+         j += cloud_msg.point_step) {
       size_t idx = i * cloud_msg.width * cloud_msg.point_step + j;
       double x = ToFloat(cloud_msg.data[idx + 3], cloud_msg.data[idx + 2],
                          cloud_msg.data[idx + 1], cloud_msg.data[idx + 0]);
@@ -106,7 +107,11 @@ int main(int argc, char **argv) {
   // Initialize ROS.
   ros::init(argc, argv, "depth_factor", ros::init_options::NoSigintHandler);
   ros::NodeHandle n;
-  articulation_ = new Articulation(&n, FLAGS_num_opt_iters, FLAGS_type);
+
+  ros::Publisher cloud_publisher =
+      n.advertise<sensor_msgs::PointCloud2>("clean_cloud", 1, false);
+  articulation_ =
+      new Articulation(&n, FLAGS_num_opt_iters, FLAGS_type, &cloud_publisher);
 
   ros::Subscriber kinect_sub =
       n.subscribe(FLAGS_points_topic, 1, &KinectCallback);
@@ -117,10 +122,13 @@ int main(int argc, char **argv) {
   while (run_ && ros::ok()) {
     ros::spinOnce();
     if (FLAGS_type == "revolute") {
-      articulation_->OptimizeRevoluteOnline(ros::Time::now().toSec() - start_time);
+      articulation_->OptimizeRevoluteOnline(ros::Time::now().toSec() -
+                                            start_time);
     } else if (FLAGS_type == "prismatic") {
-      articulation_->OptimizePrismaticOnline(ros::Time::now().toSec() - start_time);
+      articulation_->OptimizePrismaticOnline(ros::Time::now().toSec() -
+                                             start_time);
     }
+    // cloud_publisher.publish(articulation_->PointCloudMsg());
     loop.Sleep();
   }
 
